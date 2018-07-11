@@ -1,10 +1,11 @@
 #pragma once
 
-#include "docs_importance_helpers.h"
+#include "importance_evaluators/importance_evaluator.h"
+#include "influence_params.h"
 
 struct TDStrResult {
     TDStrResult() = default;
-    TDStrResult(ui32 testDocCount)
+    explicit TDStrResult(size_t testDocCount)
         : Indices(testDocCount)
         , Scores(testDocCount)
     {
@@ -18,10 +19,6 @@ TDStrResult GetDocumentImportances(
     const TFullModel& model,
     const TPool& trainPool,
     const TPool& testPool,
-    const TString& dstrTypeStr,
-    int topSize,
-    const TString& updateMethodStr,
-    const TString& importanceValuesSignStr,
-    int threadCount
+    const TInfluenceRawParams& influenceStrParams
 );
 

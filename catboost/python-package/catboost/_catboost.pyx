@@ -385,6 +385,27 @@ cdef extern from "catboost/libs/fstr/calc_fstr.h":
 
 
 cdef extern from "catboost/libs/documents_importance/docs_importance.h":
+    cdef cppclass TInfluenceRawParams:
+        TInfluenceRawParams(
+            TString influenceEvaluaionMode,
+            TString influenceTarget,
+            TString dstrType,
+            int topSize,
+            TString updateMethod,
+            size_t firstDifferentiatedTreeIdx,
+            size_t lastDifferentiatedTreeIdx,
+            TString importanceValuesSign,
+            int threadCount
+        )
+        const TString InfluenceEvaluaionMode
+        const TString InfluenceTarget
+        const TString DstrType
+        const int TopSize
+        const TString UpdateMethod
+        const size_t FirstDifferentiatedTreeIdx
+        const size_t LastDifferentiatedTreeIdx
+        const TString ImportanceValuesSign
+        const int ThreadCount
     cdef cppclass TDStrResult:
         TVector[TVector[uint32_t]] Indices
         TVector[TVector[double]] Scores
@@ -392,10 +413,13 @@ cdef extern from "catboost/libs/documents_importance/docs_importance.h":
         const TFullModel& model,
         const TPool& trainPool,
         const TPool& testPool,
-        const TString& dstrType,
-        int topSize,
-        const TString& updateMethod,
-        const TString& importanceValuesSign,
+        const TInfluenceRawParams& influenceRawParams
+    ) nogil except +ProcessException
+
+cdef extern from "catboost/libs/documents_importance/refit_leaf_values/refit_leaf_values.h":
+    cdef void RefitLeafValues(
+        TFullModel* model,
+        const TPool& trainPool,
         int threadCount
     ) nogil except +ProcessException
 
@@ -1440,8 +1464,9 @@ cdef class _CatBoost:
         )
         return [[value for value in fstr[i]] for i in range(fstr.size())], feature_ids
 
-    cpdef _calc_ostr(self, _PoolBase train_pool, _PoolBase test_pool, int top_size, ostr_type, update_method, importance_values_sign, int thread_count):
+    cpdef _calc_ostr(self, _PoolBase train_pool, _PoolBase test_pool, int top_size, mode, ostr_type, influence_target, update_method, importance_values_sign, int thread_count, size_t first_tree_idx, size_t last_tree_idx):
         ostr_type = to_binary_str(ostr_type)
+        influence_target = to_binary_str(influence_target)
         update_method = to_binary_str(update_method)
         importance_values_sign = to_binary_str(importance_values_sign)
         thread_count = UpdateThreadCount(thread_count);
@@ -1449,11 +1474,17 @@ cdef class _CatBoost:
             dereference(self.__model),
             dereference(train_pool.__pool),
             dereference(test_pool.__pool),
-            TString(<const char*>ostr_type),
-            top_size,
-            TString(<const char*>update_method),
-            TString(<const char*>importance_values_sign),
-            thread_count
+            TInfluenceRawParams(
+                TString(<const char*>mode),
+                TString(<const char*>influence_target),
+                TString(<const char*>ostr_type),
+                top_size,
+                TString(<const char*>update_method),
+                first_tree_idx,
+                last_tree_idx,
+                TString(<const char*>importance_values_sign),
+                thread_count
+            )
         )
         indices = [[int(value) for value in ostr.Indices[i]] for i in range(ostr.Indices.size())]
         scores = [[value for value in ostr.Scores[i]] for i in range(ostr.Scores.size())]
@@ -1461,6 +1492,13 @@ cdef class _CatBoost:
             indices = indices[0]
             scores = scores[0]
         return indices, scores
+
+    cpdef _refit_leaf_values(self, _PoolBase train_pool, int thread_count):
+        RefitLeafValues(
+            self.__model,
+            dereference(train_pool.__pool),
+            thread_count
+        )
 
     cpdef _base_shrink(self, int ntree_start, int ntree_end):
         self.__model.ObliviousTrees.Truncate(ntree_start, ntree_end)

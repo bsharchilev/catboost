@@ -1,12 +1,18 @@
 LIBRARY()
 
-
+OWNER(
+    g:matrixnet
+)
 
 SRCS(
-    docs_importance_helpers.cpp
+    importance_evaluators/importance_evaluator.cpp
+    importance_evaluators/importance_evaluator_factory.cpp
+    importance_evaluators/in_memory_evaluator.cpp
     docs_importance.cpp
+    docs_importance_helpers.cpp
     tree_statistics.cpp
     ders_helpers.cpp
+    influence_params.cpp
 )
 
 PEERDIR(

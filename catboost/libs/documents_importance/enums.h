@@ -1,5 +1,10 @@
 #pragma once
 
+enum class EInfluenceEvaluationMode {
+    InMemory,
+    OffMemory
+};
+
 enum class EDocumentStrengthType {
     PerObject,
     Average,

@@ -5,10 +5,10 @@
 #include <catboost/libs/data/pool.h>
 #include <catboost/libs/metrics/ders_holder.h>
 #include <catboost/libs/helpers/query_info_helper.h>
+#include "influence_params.h"
 
 void EvaluateDerivatives(
-    ELossFunction lossFunction,
-    ELeavesEstimation leafEstimationMethod,
+    const NCatboostOptions::TLossDescription& lossDescription,
     const TVector<double>& approxes,
     const TPool& pool,
     TVector<double>* firstDerivatives,

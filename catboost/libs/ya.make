@@ -10,6 +10,7 @@ RECURSE(
     data_util/ut
     distributed
     documents_importance
+    documents_importance/refit_leaf_values
     fstr
     helpers
     init

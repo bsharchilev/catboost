@@ -5,13 +5,6 @@
 #include <catboost/libs/documents_importance/docs_importance.h>
 #include <catboost/libs/data/load_data.h>
 
-#include <catboost/libs/model/model.h>
-
-#include <library/getopt/small/last_getopt.h>
-
-#include <util/system/fs.h>
-#include <util/string/iterator.h>
-
 
 using namespace NCB;
 
@@ -22,6 +15,8 @@ struct TObjectImportancesParams {
     TPathWithScheme LearnSetPath;
     TPathWithScheme TestSetPath;
     NCatboostOptions::TDsvPoolFormatParams DsvPoolFormatParams;
+    TString InfluenceEvaluationMode = "InMemory";
+    TString TestLossDescriptionStr = "TrainingLoss";
     TString UpdateMethod = ToString(EUpdateType::SinglePoint);
     int ThreadCount = NSystemInfo::CachedNumberOfCpus();
     char Delimiter = '\t';
@@ -41,6 +36,13 @@ struct TObjectImportancesParams {
         parser.AddLongOption('o', "output-path", "output result path")
             .StoreResult(&OutputPath)
             .DefaultValue("object_importances.tsv");
+        parser.AddLongOption("mode", "Should be one of: InMemory, OffMemory")
+              .RequiredArgument("string")
+              .StoreResult(&InfluenceEvaluationMode);
+        parser.AddLongOption("loss-function",
+                             "Should be one of: Logloss, CrossEntropy, RMSE, MAE, Quantile, LogLinQuantile, MAPE, Poisson, MultiClass, MultiClassOneVsAll, PairLogit, QueryRMSE, QuerySoftMax. A loss might have params, then params should be written in format Loss:paramName=value.")
+            .RequiredArgument("string")
+            .StoreResult(&TestLossDescriptionStr);
         parser.AddLongOption('T', "thread-count", "worker thread count (default: core count)")
             .StoreResult(&ThreadCount);
         parser.AddLongOption("update-method", "Should be one of: SinglePoint, TopKLeaves, AllPoints or TopKLeaves:top=2 to set the top size in TopKLeaves method.")
@@ -81,15 +83,22 @@ int mode_ostr(int argc, const char* argv[]) {
                   /*classNames=*/{},
                   &testPool);
 
+    TInfluenceRawParams influenceRawParams = TInfluenceRawParams(
+            params.InfluenceEvaluationMode,
+            params.TestLossDescriptionStr,
+            ToString(EDocumentStrengthType::Raw),
+            -1,
+            params.UpdateMethod,
+            0,
+            model.GetTreeCount() - 1,
+            ToString(EImportanceValuesSign::All),
+            params.ThreadCount
+    );
     TDStrResult results = GetDocumentImportances(
         model,
         trainPool,
         testPool,
-        /*dstrTypeStr=*/ToString(EDocumentStrengthType::Raw),
-        /*topSize=*/-1,
-        params.UpdateMethod,
-        /*importanceValuesSignStr=*/ToString(EImportanceValuesSign::All),
-        params.ThreadCount
+        influenceRawParams
     );
 
     TFileOutput output(params.OutputPath);

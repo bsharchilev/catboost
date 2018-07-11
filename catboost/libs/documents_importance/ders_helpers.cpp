@@ -1,19 +1,20 @@
 #include "ders_helpers.h"
 
 #include "catboost/libs/algo/error_functions.h"
+#include "influence_params.h"
 
 template<typename TError>
 void EvaluateDerivativesForError(
     const TVector<double>& approxes,
     const TPool& pool,
-    ELossFunction lossFunction,
-    ELeavesEstimation leafEstimationMethod,
+    const NCatboostOptions::TLossDescription& lossDescription,
     TVector<double>* firstDerivatives,
     TVector<double>* secondDerivatives,
     TVector<double>* thirdDerivatives
 ) {
+    ELossFunction lossFunction = lossDescription.GetLossFunction();
     const bool isStoreExpApprox = IsStoreExpApprox(lossFunction);
-    ui32 docCount = pool.Docs.GetDocCount();
+    size_t docCount = pool.Docs.GetDocCount();
 
     TVector<double> expApproxes;
     if (isStoreExpApprox) {
@@ -25,7 +26,6 @@ void EvaluateDerivativesForError(
     const TVector<double>& approxesRef = isStoreExpApprox ? expApproxes : approxes;
 
     TError error(isStoreExpApprox);
-    CheckDerivativeOrderForObjectImportance(error.GetMaxSupportedDerivativeOrder(), leafEstimationMethod);
     TVector<TDers> derivatives(docCount);
 
     Y_ASSERT(error.GetErrorType() == EErrorType::PerObjectError);
@@ -56,14 +56,14 @@ void EvaluateDerivativesForError(
 using TEvaluateDerivativesFunc = std::function<void(
     const TVector<double>& approxes,
     const TPool& pool,
-    ELossFunction lossFunction,
-    ELeavesEstimation leafEstimationMethod,
+    const NCatboostOptions::TLossDescription& influenceTarget,
     TVector<double>* firstDerivatives,
     TVector<double>* secondDerivatives,
     TVector<double>* thirdDerivatives
 )>;
 
-static TEvaluateDerivativesFunc GetEvaluateDerivativesFunc(ELossFunction lossFunction) {
+static TEvaluateDerivativesFunc GetEvaluateDerivativesFunc(const NCatboostOptions::TLossDescription& lossDescription) {
+    ELossFunction lossFunction = lossDescription.GetLossFunction();
     switch (lossFunction) {
         case ELossFunction::Logloss:
         case ELossFunction::CrossEntropy:
@@ -91,20 +91,18 @@ static TEvaluateDerivativesFunc GetEvaluateDerivativesFunc(ELossFunction lossFun
 }
 
 void EvaluateDerivatives(
-    ELossFunction lossFunction,
-    ELeavesEstimation leafEstimationMethod,
+    const NCatboostOptions::TLossDescription& lossDescription,
     const TVector<double>& approxes,
     const TPool& pool,
     TVector<double>* firstDerivatives,
     TVector<double>* secondDerivatives,
     TVector<double>* thirdDerivatives
 ) {
-    auto evaluateDerivativesFunc = GetEvaluateDerivativesFunc(lossFunction);
+    auto evaluateDerivativesFunc = GetEvaluateDerivativesFunc(lossDescription);
     evaluateDerivativesFunc(
         approxes,
         pool,
-        lossFunction,
-        leafEstimationMethod,
+        lossDescription,
         firstDerivatives,
         secondDerivatives,
         thirdDerivatives
